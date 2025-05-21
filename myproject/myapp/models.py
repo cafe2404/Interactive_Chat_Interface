@@ -64,6 +64,20 @@ class User(models.Model):
         db_table = "myapp_user"
         ordering = ["-created_at"]
 
+class ChatMessage(models.Model):
+    sender = models.ForeignKey('User', on_delete=models.CASCADE, related_name='sent_messages')
+    receiver = models.ForeignKey('User', on_delete=models.CASCADE, related_name='received_messages')
+    message = models.TextField(blank=True)  # Cho phép rỗng nếu chỉ gửi file
+    file = models.FileField(upload_to="chat_files/", blank=True, null=True)
+    sent_at = models.DateTimeField(default=now)
+
+    class Meta:
+        ordering = ['sent_at']
+        db_table = 'chat_message'
+
+class ChatFile(models.Model):
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to='chat_files/')
 
 
 

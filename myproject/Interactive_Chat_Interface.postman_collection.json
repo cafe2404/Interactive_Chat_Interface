@@ -566,6 +566,7 @@
 				}
 			]
 		},
+
 		{
 			"name": "Recycle Bin",
 			"item": [
@@ -681,6 +682,197 @@
 						}
 					},
 					"response": []
+				}
+			]
+		},
+
+		{
+			"name": "Chat",
+			"item": [
+				{			
+					"name": "Send Message",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "<PASTE_YOUR_JWT_ACCESS_TOKEN_HERE>",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ 
+									"key": "receiver_id", 
+									"value": "2", 
+									"type": "text" 
+								},
+								{
+									"key": "message",
+									"value": "Hello, how are you?",
+									"type": "text"
+								},
+								{
+								  "key": "files",
+								  "type": "file",
+								  "src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/users/chat",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"users",
+								"chat"
+							]
+						}
+					},
+					"response": []	
+				},
+
+				{
+					"name": "Delete Message",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "<access_token>",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "message_id",
+									"value": "2",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/users/chat/delete",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"users",
+								"chat",
+								"delete"
+							]
+						}
+					},
+					"response": []
+				},
+
+				{
+					"name": "Update Message",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "<access_token>",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "message_id",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "message_update",
+									"value": "It's time to go home",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/users/chat/update",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"users",
+								"chat",
+								"update"
+							]
+						}
+					},
+					"response": []
+				},
+
+				{			
+					"name": "History Chat",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+
+						"url": {
+							"raw": "http://localhost:8000/api/users/chat-history?sender_id=1&receiver_id=2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"users",
+								"chat-history"
+							],
+							"query": [
+								{
+									"key": "sender_id",
+									"value": "1"
+								},
+								{
+									"key": "receiver_id",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"response": []	
 				}
 			]
 		}

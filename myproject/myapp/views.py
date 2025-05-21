@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, parser_classes
 from django.contrib.auth.models import User
-from .models import User
+from .models import User, ChatMessage, ChatFile
 from .serializers import UserSerializer
 from django.contrib.auth.hashers import check_password
 from rest_framework import status
@@ -20,6 +20,7 @@ import uuid
 from .utils import create_access_token
 import jwt
 from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
 
 # Register
 @api_view(['POST'])
@@ -76,11 +77,14 @@ def register(request):
 # Add loginUser.
 @api_view(['POST'])
 def loginUser(request):
-    email = request.data.get("email")
+    email_or_phone = request.data.get("email")
     password = request.data.get("password")
 
     try:
-        user = User.objects.get(email=email)
+        # user = User.objects.get(email=email)
+        user = User.objects.get(
+            Q(email=email_or_phone) | Q(your_phone=email_or_phone)
+        )
     except User.DoesNotExist:
         user = None
 
@@ -102,6 +106,7 @@ def loginUser(request):
 
     return Response({
         "DT": {
+            "id": user.id,
             "name": user.your_name,
             "gender": user.gender,
             "email": user.email,
@@ -627,25 +632,239 @@ def exclude_participants(request):
         "participants": data
     })
 
-# =====================================================================================
+# ===================================== CHAT ==============================================
+@csrf_exempt
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def send_message(request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return Response({"EC": 1, "EM": "Missing Authorization"}, status=401)
 
-# Refresh Token
-# from .utils import create_access_token  # Hàm tạo access token (nếu có)
+    token = auth_header.split(" ")[1]
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        sender = User.objects.get(email=payload['email'])
+
+        receiver_id = request.data.get("receiver_id")
+        message = request.data.get("message", "").strip()
+
+        # file = request.FILES.get("file")  # Hỗ trợ file (PDF, Word, ảnh,...)
+
+        if not receiver_id:
+            return Response({"EC": 1, "EM": "receiver_id and message required"}, status=400)
+
+        receiver = User.objects.filter(id=receiver_id).first()
+        if not receiver:
+            return Response({"EC": 1, "EM": "Receiver not found"}, status=404)
+
+        if not message and not request.FILES:
+            return Response({"EC": 1, "EM": "Message or file is required"}, status=400)
+
+        # Tạo bản ghi tin nhắn
+        chat = ChatMessage.objects.create(sender=sender, receiver=receiver, message=message) # Delete: file=file
+
+        # Lưu nhiều file
+        for file in request.FILES.getlist("files"):
+            ChatFile.objects.create(message=chat, file=file)
+
+        return Response({
+            "EC": 0,
+            "EM": "Message sent",
+            "DT": {
+                "from": sender.your_name,
+                "to": receiver.your_name,
+                "message": chat.message,
+                # "file_url": request.build_absolute_uri(chat.file.url) if chat.file else None,
+                "files": [
+                    request.build_absolute_uri(f.file.url) for f in chat.files.all()
+                ],
+                "sent_at": localtime(chat.sent_at).strftime("%Y-%m-%d %H:%M:%S")
+            }
+        })
+
+    except jwt.ExpiredSignatureError:
+        return Response({"EC": 1, "EM": "Token expired"}, status=401)
+    except jwt.InvalidTokenError:
+        return Response({"EC": 1, "EM": "Invalid token"}, status=401)
+
+@csrf_exempt
+@api_view(['DELETE'])
+def delete_message(request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return Response({"EC": 1, "EM": "Missing or invalid Authorization"}, status=401)
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        # Giải mã token để lấy email user đăng nhập
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        request_user = User.objects.get(email=payload["email"])
+
+        # Lấy message_id từ body
+        message_id = request.data.get("message_id")
+        if not message_id:
+            return Response({"EC": 1, "EM": "Missing message_id"}, status=400)
+
+        try:
+            message = ChatMessage.objects.get(id=message_id)
+        except ChatMessage.DoesNotExist:
+            return Response({"EC": 1, "EM": "Message not found"}, status=404)
+
+        # Kiểm tra quyền sở hữu tin nhắn
+        if message.sender.id != request_user.id:
+            return Response({"EC": 1, "EM": "Permission denied: You can only delete your own messages"}, status=403)
+
+        # Xoá cứng
+        message.delete()
+
+        return Response({"EC": 0, "EM": "Message deleted successfully"})
+
+    except jwt.ExpiredSignatureError:
+        return Response({"EC": 1, "EM": "Token expired"}, status=401)
+    except jwt.InvalidTokenError:
+        return Response({"EC": 1, "EM": "Invalid token"}, status=401)
+
+@csrf_exempt
+@api_view(['PUT'])
+def update_message(request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return Response({"EC": 1, "EM": "Missing or invalid Authorization"}, status=401)
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        user = User.objects.get(email=payload["email"])
+
+        message_id = request.data.get("message_id")
+        message_update = request.data.get("message_update", "").strip()
+
+        if not message_id:
+            return Response({"EC": 1, "EM": "Missing message_id"}, status=400)
+
+        message = ChatMessage.objects.filter(id=message_id).first()
+        if not message:
+            return Response({"EC": 1, "EM": "Message not found"}, status=404)
+
+        # Kiểm tra quyền sửa tin nhắn
+        if message.sender.id != user.id:
+            return Response({"EC": 1, "EM": "Permission denied: You can only update your own messages"}, status=403)
+
+        # Không cho update rỗng
+        if not message_update:
+            return Response({"EC": 1, "EM": "Message content cannot be empty"}, status=400)
+
+        # Cập nhật nội dung tin nhắn
+        message.message = message_update
+        message.save()
+
+        return Response({
+            "EC": 0,
+            "EM": "Message updated successfully",
+            "DT": {
+                "id": message.id,
+                "message": message.message,
+                "sent_at": localtime(message.sent_at).strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        })
+
+    except jwt.ExpiredSignatureError:
+        return Response({"EC": 1, "EM": "Token expired"}, status=401)
+    except jwt.InvalidTokenError:
+        return Response({"EC": 1, "EM": "Invalid token"}, status=401)
+    except Exception as e:
+        return Response({"EC": 1, "EM": f"Unexpected error: {str(e)}"}, status=500)
+
+
+@api_view(['GET'])
+def chat_history(request):
+    sender_id = request.GET.get("sender_id")
+    receiver_id = request.GET.get("receiver_id")
+
+    if not sender_id or not receiver_id:
+        return Response({"EC": 1, "EM": "sender_id and receiver_id required"}, status=400)
+
+    try:
+        sender = User.objects.get(id=sender_id)
+        receiver = User.objects.get(id=receiver_id)
+    except User.DoesNotExist:
+        return Response({"EC": 1, "EM": "User not found"}, status=404)
+
+    messages = ChatMessage.objects.filter(
+        Q(sender=sender, receiver=receiver) | Q(sender=receiver, receiver=sender),
+        # is_deleted=False
+    ).order_by("sent_at")
+
+    result = [
+        {
+            "id": msg.id,
+            "from": msg.sender.your_name,
+            "to": msg.receiver.your_name,
+            "message": msg.message,
+            "sent_at": localtime(msg.sent_at).strftime("%Y-%m-%d %H:%M:%S"),
+            "files": [
+                request.build_absolute_uri(f.file.url) for f in msg.files.all()
+            ],
+        } for msg in messages
+    ]
+
+    return Response({
+        "EC": 0,
+        "EM": "Fetched chat history",
+        "DT": result
+    })
+
+
+# ===============================================================================
+# @csrf_exempt  # Bỏ kiểm tra CSRF vì đây là API không dùng cookie
 # @api_view(['POST'])
-# def refresh_token(request):
-#     email = request.data.get("email")
-#     refresh_token = request.data.get("refresh_token")
+# def send_message(request):
+#     # Lấy Authorization token từ header
+#     auth_header = request.headers.get("Authorization")
 #
-#     # Kiểm tra email có tồn tại trong database không
-#     user = User.objects.filter(email=email).first()
-#     if not user:
-#         return Response({"error": "User not found"}, status=404)
+#     if not auth_header or not auth_header.startswith("Bearer "):
+#         return Response({"EC": 1, "EM": "Missing or invalid Authorization header"}, status=401)
 #
-#     # Kiểm tra refresh_token hợp lệ không (giả sử có lưu refresh_token trong User model)
-#     if user.refresh_token != refresh_token:
-#         return Response({"error": "Invalid refresh token"}, status=401)
+#     token = auth_header.split(" ")[1]
 #
-#     # Tạo access token mới
-#     new_access_token = create_access_token(user)
+#     try:
+#         # Giải mã token
+#         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+#         email = payload.get("email")
 #
-#     return Response({"access_token": new_access_token}, status=200)
+#         if not email:
+#             return Response({"EC": 1, "EM": "Invalid token - no email"}, status=401)
+#
+#         user = User.objects.filter(email=email).first()
+#         if not user:
+#             return Response({"EC": 1, "EM": "User not found"}, status=404)
+#
+#         # Lấy nội dung tin nhắn từ body
+#         message = request.data.get("message", "").strip()
+#         if not message:
+#             return Response({"EC": 1, "EM": "Message is required"}, status=400)
+#
+#         # Giả sử bạn muốn chỉ phản hồi lại nội dung để test
+#         return Response({
+#             "EC": 0,
+#             "EM": "Message sent successfully",
+#             "DT": {
+#                 "id": user.id,
+#                 "your_name": user.your_name,
+#                 "gender": user.gender,
+#                 "email": user.email,
+#                 "your_phone": user.your_phone,
+#                 "sent_at": localtime(now()).strftime("%Y-%m-%d %H:%M:%S"), # Lấy thời gian hiện tại
+#                 "message": message,
+#             }
+#         }, status=200)
+#
+#     except jwt.ExpiredSignatureError:
+#         return Response({"EC": 1, "EM": "Token has expired"}, status=401)
+#     except jwt.InvalidTokenError:
+#         return Response({"EC": 1, "EM": "Invalid token"}, status=401)
+
+# =====================================================================================

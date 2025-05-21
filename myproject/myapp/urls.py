@@ -22,6 +22,12 @@ urlpatterns = [
     path("refresh-token", views.refresh_token, name="refresh_token"), # views.py
 
     path('logout', views.logout_user, name='logout'), # views.py
+
+    path("chat", views.send_message, name="send_message"),
+    path("chat-history", views.chat_history, name="chat_history"),
+
+    path("chat/delete", views.delete_message, name="delete_message"),
+    path("chat/update", views.update_message, name="update_message"),
 ]
 
 if settings.DEBUG:
