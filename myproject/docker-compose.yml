@@ -1,19 +1,30 @@
 version: '3.9'
 
 services:
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
   myapp:
     container_name: myapp
-    build: .
+    build:
+      context: .
+    command: ["./django.sh"]
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
     environment:
       - PG_USER=postgres
       - PG_PASSWORD=postgres
       - PG_DB=postgres
       - PG_HOST=db
       - PG_PORT=5432
+      - DJANGO_SETTINGS_MODULE=myproject.settings
     depends_on:
       - db
+      - redis
   db:
     container_name: db
     image: postgres:14

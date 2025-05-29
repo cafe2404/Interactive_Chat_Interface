@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +27,7 @@ SECRET_KEY = 'django-insecure-(4cmrl%bpq7di7)e)idqg5@*5!_r=kbke!9yv)zxee*a)b8r+z
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -41,11 +42,36 @@ INSTALLED_APPS = [
     'myapp',
     'rest_framework',
     "corsheaders",
+    "channels",
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
+ASGI_APPLICATION = 'myproject.asgi.application'  # thêm dòng này
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+        },
+    },
+}
+
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,  # Số kết quả mặc định mỗi trang
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=48),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=60),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,  # 👈 BẮT BUỘC
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_BLACKLIST_ENABLED": True,
 }
 
 MIDDLEWARE = [
@@ -92,7 +118,8 @@ DATABASES = {
         'NAME': os.environ.get('PG_DB', 'postgres'),
         'USER': os.environ.get('PG_USER', 'postgres'),
         'PASSWORD': os.environ.get('PG_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('PG_HOST', 'localhost'),
+        # 'HOST': os.environ.get('PG_HOST', 'localhost'),
+        'HOST': os.environ.get('PG_HOST', 'db'),
         'PORT': os.environ.get('PG_PORT', '5432'),
     }
 }
@@ -114,7 +141,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
@@ -140,6 +166,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-MEDIA_URL = ""
+MEDIA_URL = "/media/"
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Lưu file upload vào thư mục /media
 MEDIA_ROOT = "D:/PROJECT/Project 10 Interactive Chat Interface/frontend/public"
 
+AUTH_USER_MODEL = 'myapp.User'

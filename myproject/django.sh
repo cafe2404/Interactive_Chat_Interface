@@ -1,11 +1,11 @@
 #!/bin/bash
-echo "Create migrations"
-python manage.py makemigrations myapp
-echo "=============================="
-
-echo "Migrate"
+echo "Running migrations..."
+python manage.py makemigrations
 python manage.py migrate
-echo "=============================="
+echo "Migrations done."
 
-echo "Start server"
-python manage.py runserver 0.0.0.0:8000
+echo "Starting Daphne..."
+exec daphne -b 0.0.0.0 -p 8000 myproject.asgi:application
+
+
+
