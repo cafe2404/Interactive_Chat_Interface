@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.timezone import now
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from .storages import OverwriteStorage
 
 class ActiveUserManager(models.Manager):
     def get_queryset(self):
@@ -32,6 +33,9 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
+def keep_filename(instance, filename):
+    return f"{filename}"
+
 class User(AbstractBaseUser, PermissionsMixin):
     your_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
@@ -41,7 +45,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     company_tax = models.CharField(max_length=255)
     role = models.CharField(max_length=255, default="User")
     gender = models.CharField(max_length=255, default="Other")
-    userImage = models.ImageField(upload_to="", blank=True, null=True)
+    # userImage = models.ImageField(upload_to="", blank=True, null=True)
+    userImage = models.ImageField(
+        upload_to=keep_filename,
+        storage=OverwriteStorage(),  # ⬅️ dùng custom storage
+        blank=True,
+        null=True
+    )
 
     refresh_token = models.CharField(blank=True, null=True) # Deleted max_length=255
     refresh_expired = models.DateTimeField(blank=True, null=True)

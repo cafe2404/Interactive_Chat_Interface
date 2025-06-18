@@ -24,6 +24,8 @@ urlpatterns = [
 
     path('logout', views.logout_user, name='logout'), # views.py
 
+    path('profile', views.update_profile, name='update_profile'), # views.py
+
     path("chat", views.send_message, name="send_message"),
     path("chat-history/unidirectional-message", views.unidirectional_message_history, name="unidirectional_message_history"),
     path("chat-history/bidirectional-message", views.bidirectional_message_history, name="bidirectional_message_history"),

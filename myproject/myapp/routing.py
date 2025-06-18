@@ -18,4 +18,13 @@ websocket_urlpatterns = [
 #   "message": "Hello"
 # }
 
+# {
+#   "type": "chat.message",
+#   "receiver_id": 2,
+#   "message": "Do you hear me?",
+#   "files": [
+#     "http://localhost:8000/media/uploads/files/Kiến Thức - Long Khang.xlsx",
+#     "http://localhost:8000/media/uploads/images/hình ảnh.jpg"
+#   ]
+# }
 

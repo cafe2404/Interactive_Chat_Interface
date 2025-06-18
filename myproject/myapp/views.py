@@ -207,6 +207,73 @@ def refresh_token(request):
             "EM": "Invalid refresh token or email"
         }, status=status.HTTP_401_UNAUTHORIZED)
 
+# UPDATE PROFILE
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def update_profile(request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return Response({"EC": 1, "EM": "Missing Authorization"}, status=401)
+
+    try:
+        token = auth_header.split(" ")[1]
+        payload = AccessToken(token)
+
+        email_or_phone = request.data.get("email")
+
+        # Tìm user theo email hoặc số điện thoại
+        try:
+            user = User.objects.get(
+                Q(email=email_or_phone) | Q(your_phone=email_or_phone)
+            )
+        except User.DoesNotExist:
+            return Response({"EC": 1, "EM": "User not found"}, status=404)
+
+        # ✅ Nếu có file ảnh, xoá file trùng tên trước khi save
+        if "userImage" in request.FILES:
+            new_image = request.FILES["userImage"]
+            image_path = os.path.join(settings.MEDIA_ROOT, 'avatars', new_image.name)
+
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
+        # ✅ Cập nhật thông tin user
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            user.updated_at = now()
+            serializer.save()
+            user.refresh_from_db()
+
+            return Response({
+                "DT": {
+                    "id": user.id,
+                    "name": user.your_name,
+                    "gender": user.gender,
+                    "email": user.email,
+                    "phone": user.your_phone,
+                    "company's name": user.company_name,
+                    "company tax": user.company_tax,
+                    "user_image": user.userImage.name if user.userImage else None,
+                    "role": user.role,
+                    "updated_at": localtime(user.updated_at).strftime("%Y-%m-%d %H:%M:%S")
+                },
+                "EC": 0,
+                "EM": "Profile updated successfully"
+            }, status=status.HTTP_200_OK)
+
+        else:
+            return Response({
+                "EC": 1,
+                "EM": "Invalid data",
+                "errors": serializer.errors
+            }, status=400)
+
+    except TokenError as e:
+        return Response({"EC": 1, "EM": f"Token error: {str(e)}"}, status=401)
+
+    except Exception as e:
+        return Response({"EC": 1, "EM": f"Unexpected error: {str(e)}"}, status=500)
+
 # Get all Users
 @api_view(['GET'])
 def getUsers(request):

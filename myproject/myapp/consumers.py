@@ -46,7 +46,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "chat.message",
             "message": event["message"],
             "sender": event["sender"],
-            "sent_at": event.get("sent_at")
+            "sent_at": event.get("sent_at"),
+            "files": event.get("files", [])
         }))
 
     async def send_json(self, data):
@@ -82,8 +83,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send_json({"type": "auth.failed", "message": "User not found"})
                 await self.close()
 
-
-
         except jwt.InvalidTokenError:
             await self.send_json({"type": "auth.failed", "message": "Invalid token"})
             await self.close()
@@ -91,6 +90,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, sender, receiver, message):
         return ChatMessage.objects.create(sender=sender, receiver=receiver, message=message)
+
+    @database_sync_to_async
+    def save_file_urls(self, chat_msg, file_urls):
+        from myapp.models import ChatFile
+        for url in file_urls:
+            ChatFile.objects.create(message=chat_msg, file=url)
 
     async def handle_chat_message(self, data):
         if not hasattr(self, "user"):
@@ -111,12 +116,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         msg = await self.save_message(self.user, receiver, message)
 
+        files = data.get("files", [])
+        if files:
+            await self.save_file_urls(msg, files)
+
         # Gửi hồi âm lại chính sender
         await self.send_json({
             "type": "chat.sent",
             "to": receiver.id,
             "message": message,
-            "sent_at": localtime(msg.sent_at).strftime("%Y-%m-%d %H:%M:%S")
+            "sent_at": localtime(msg.sent_at).strftime("%Y-%m-%d %H:%M:%S"),
+            "files": files
         })
 
         # Gửi cho receiver nếu họ online
@@ -127,6 +137,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "type": "chat.message",
                 "sender": self.user.id,
                 "message": message,
-                "sent_at": localtime(msg.sent_at).strftime("%Y-%m-%d %H:%M:%S")
+                "sent_at": localtime(msg.sent_at).strftime("%Y-%m-%d %H:%M:%S"),
+                "files": files
             }
         )
+
+
+

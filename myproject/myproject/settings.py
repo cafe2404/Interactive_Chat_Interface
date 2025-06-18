@@ -167,7 +167,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = "/media/"
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Lưu file upload vào thư mục /media
-MEDIA_ROOT = "D:/PROJECT/Project 10 Interactive Chat Interface/frontend/public"
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Lưu file upload vào thư mục /media
+# MEDIA_ROOT = "D:/PROJECT/Project 10 Interactive Chat Interface/frontend/public"
 
 AUTH_USER_MODEL = 'myapp.User'
