@@ -61,7 +61,6 @@ class User(models.Model):
         self.delete()
 
     class Meta:
-        db_table = "myapp_user"
         ordering = ["-created_at"]
 
 class ChatMessage(models.Model):
@@ -73,43 +72,8 @@ class ChatMessage(models.Model):
 
     class Meta:
         ordering = ['sent_at']
-        db_table = 'chat_message'
 
 class ChatFile(models.Model):
     message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='files')
     file = models.FileField(upload_to='chat_files/')
 
-
-
-# from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-# from django.db import models
-#
-# class UserManager(BaseUserManager):
-#     def create_user(self, email, name, password=None):
-#         if not email:
-#             raise ValueError("Users must have an email address")
-#         user = self.model(email=self.normalize_email(email), name=name)
-#         user.set_password(password)  # Hash password
-#         user.save(using=self._db)
-#         return user
-#
-#     def create_superuser(self, email, name, password):
-#         user = self.create_user(email, name, password)
-#         user.is_admin = True
-#         user.save(using=self._db)
-#         return user
-#
-# class User(AbstractBaseUser):
-#     email = models.EmailField(unique=True)
-#     name = models.CharField(max_length=255)
-#     password = models.CharField(max_length=255)  # Mật khẩu được hash tự động
-#     is_active = models.BooleanField(default=True)
-#     is_admin = models.BooleanField(default=False)
-#
-#     objects = UserManager()
-#
-#     USERNAME_FIELD = 'email'
-#     REQUIRED_FIELDS = ['name']
-#
-#     def __str__(self):
-#         return self.email

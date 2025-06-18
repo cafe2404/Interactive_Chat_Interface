@@ -1,6 +1,5 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, parser_classes
-from django.contrib.auth.models import User
 from .models import User, ChatMessage, ChatFile
 from .serializers import UserSerializer
 from django.contrib.auth.hashers import check_password
@@ -79,21 +78,32 @@ def register(request):
 def loginUser(request):
     email_or_phone = request.data.get("email")
     password = request.data.get("password")
-
+    if not email_or_phone or not password:
+        return Response({
+            "DT": "",
+            "EC": 1,
+            "EM": "Email/phone and password are required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
     try:
-        # user = User.objects.get(email=email)
+        # Tìm user theo email hoặc phone
         user = User.objects.get(
             Q(email=email_or_phone) | Q(your_phone=email_or_phone)
         )
     except User.DoesNotExist:
-        user = None
-
-    if user is None or not check_password(password, user.password):
         return Response({
             "DT": "",
             "EC": 1,
             "EM": "Invalid email or password"
-        }, status=status.HTTP_400_BAD_REQUEST)  # hoặc 401 cũng được
+        }, status=status.HTTP_400_BAD_REQUEST)
+    print(user)
+    # Kiểm tra password
+    if not check_password(password, user.password):
+        return Response({
+            "DT": "",
+            "EC": 1,
+            "EM": "Invalid email or password"
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     # Nếu đăng nhập thành công
     access_token = create_access_token(user)
@@ -868,3 +878,4 @@ def chat_history(request):
 #         return Response({"EC": 1, "EM": "Invalid token"}, status=401)
 
 # =====================================================================================
+
